@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, History, 
     Database, Activity, TrendingUp, 
     ShieldCheck, DownloadCloud, HardDrive, 
-    FileUp, RefreshCcw, Sun, Moon, LogOut
+    FileUp, RefreshCcw, Sun, Moon, LogOut, Loader2
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';

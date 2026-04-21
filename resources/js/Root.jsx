@@ -37,7 +37,7 @@ const AppRoutes = () => {
                 <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
                 
                 {/* Fallbacks */}
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={isAuthenticated ? (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />) : <Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </div>
