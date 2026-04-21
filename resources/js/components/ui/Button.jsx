@@ -1,17 +1,30 @@
 import React from 'react';
 
-const Button = ({ children, variant = 'primary', className = '', ...props }) => {
-    const variants = {
-        primary: 'btn-primary',
-        secondary: 'bg-zinc-200 dark:bg-slate-800 text-slate-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-slate-700 font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0',
-        danger: 'bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0',
-        ghost: 'bg-transparent hover:bg-zinc-100 dark:hover:bg-slate-800 text-slate-600 dark:text-zinc-400 font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2',
-    };
+const Button = ({ children, onClick, type = 'button', variant = 'primary', disabled = false, className = '', title }) => {
+    const baseStyles = 'ef-button-ghost focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 ef-text-mono';
+    
+    if (variant === 'primary' || variant === 'danger') {
+        const colorClass = variant === 'danger' ? '!bg-red-600 !text-white' : '';
+        return (
+            <button 
+                type={type} 
+                onClick={onClick} 
+                disabled={disabled}
+                title={title}
+                className={`ef-button-primary ${colorClass} ${className}`}
+            >
+                {children}
+            </button>
+        );
+    }
 
     return (
         <button 
-            className={`${variants[variant] || variants.primary} ${className}`} 
-            {...props}
+            type={type} 
+            onClick={onClick} 
+            disabled={disabled}
+            title={title}
+            className={`${baseStyles} ${className} ${variant === 'ghost' ? 'border-transparent hover:bg-zinc-800/50' : ''}`}
         >
             {children}
         </button>

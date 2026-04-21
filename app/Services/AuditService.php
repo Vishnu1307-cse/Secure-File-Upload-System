@@ -16,6 +16,8 @@ class AuditService
     public const ACTION_FILE_UPLOADED = 'FILE_UPLOADED';
     public const ACTION_FILE_DOWNLOADED = 'FILE_DOWNLOADED';
     public const ACTION_UNAUTHORIZED_ACCESS = 'UNAUTHORIZED_ACCESS';
+    public const ACTION_USER_REGISTERED = 'USER_REGISTERED';
+    public const ACTION_USER_MODERATED = 'USER_MODERATED';
 
     /**
      * Record an audit log entry.

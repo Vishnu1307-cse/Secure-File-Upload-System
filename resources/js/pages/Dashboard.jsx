@@ -1,88 +1,75 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { 
-    Upload, FileText, Download, Share2, Trash2, 
-    Loader2, Search, ExternalLink, HardDrive, ShieldCheck,
-    ArrowUpRight, Clock, AlertCircle, X, Sun, Moon, LogOut, Copy, Check
+    FileUp, Download, Trash2, Shield, 
+    Share2, Loader2, HardDrive, Filter, 
+    Search, LogOut, Activity, Database,
+    FileText, X, AlertOctagon, Terminal
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
-import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [stats, setStats] = useState({ total: 0, downloads: 0 });
+    const [shareModal, setShareModal] = useState(null);
+    const [shareLink, setShareLink] = useState('');
     const [deleteModal, setDeleteModal] = useState(null);
-    const [shareData, setShareData] = useState(null);
-    const [copied, setCopied] = useState(false);
-    
-    const navigate = useNavigate();
-    const { isDark, toggleTheme } = useTheme();
+    const [searchTerm, setSearchTerm] = useState('');
+    const { user, logout, isAdmin } = useAuth();
+    const { mode, toggleTheme } = useTheme();
     const { toast } = useToast();
-    const { logout, isAdmin } = useAuth();
+    const navigate = useNavigate();
 
     const fetchFiles = useCallback(async () => {
+        setLoading(true);
         try {
             const response = await api.get('/files');
-            const data = response.data.data || [];
-            setFiles(data);
-            const totalDownloads = data.reduce((acc, f) => acc + (f.download_count || 0), 0);
-            setStats({ total: data.length, downloads: totalDownloads });
+            setFiles(response.data.data);
         } catch (err) {
-            if (err.response?.status === 401) {
-                logout();
-                navigate('/login');
-            } else {
-                toast({ type: 'error', message: 'Failed to sync your vault.' });
-            }
+            toast({ type: 'error', message: 'CRITICAL: VAULT_SYNC_FAILURE' });
         } finally {
             setLoading(false);
         }
-    }, [navigate, toast, logout]);
+    }, [toast]);
 
     useEffect(() => {
         fetchFiles();
+        const interval = setInterval(() => {
+            api.get('/files').then(res => setFiles(res.data.data)).catch(() => {});
+        }, 60000); 
+        return () => clearInterval(interval);
     }, [fetchFiles]);
 
-    const handleFileUpload = async (uploadedFile) => {
-        if (!uploadedFile) return;
-        setUploading(true);
-        toast({ type: 'loading', message: 'Encrypting and uploading file...' });
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
+        setUploading(true);
         const formData = new FormData();
-        formData.append('file', uploadedFile);
+        formData.append('file', file);
 
         try {
-            await api.post('/files', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            toast({ type: 'success', title: 'File Secured', message: 'Your file has been encrypted and stored.' });
+            await api.post('/files', formData);
+            toast({ type: 'success', title: 'DEPOSIT_SUCCESS', message: 'Data node successfully encrypted and vaulted.' });
             fetchFiles();
         } catch (err) {
-            const message = err.response?.status === 403 
-                ? 'Your account does not have permission to upload files.' 
-                : 'File might be too large or invalid.';
-            toast({ type: 'error', title: 'Upload Failed', message });
+            toast({ type: 'error', message: 'DEPOSIT_REJECTED' });
         } finally {
             setUploading(false);
         }
     };
 
     const handleDownload = async (file) => {
-        toast({ type: 'loading', message: 'Decrypting file stream...' });
         try {
-            const response = await api.get(`/files/${file.id}/download`, {
-                responseType: 'blob'
-            });
+            toast({ type: 'success', message: 'INITIALIZING_DECRYPTION_STREAM' });
+            const response = await api.get(`/files/${file.id}/download`, { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -90,23 +77,8 @@ const Dashboard = () => {
             document.body.appendChild(link);
             link.click();
             link.remove();
-            toast({ type: 'success', message: 'File decrypted successfully.' });
-            fetchFiles(); // update count
         } catch (err) {
-            toast({ type: 'error', message: 'Decryption failed.' });
-        }
-    };
-
-    const handleShare = async (file) => {
-        try {
-            const response = await api.post(`/files/${file.id}/share`);
-            setShareData({
-                link: response.data.share_link,
-                expires: response.data.expires_at,
-                name: file.file_name
-            });
-        } catch (err) {
-            toast({ type: 'error', message: 'Could not generate signed link.' });
+            toast({ type: 'error', message: 'DECRYPTION_FAILED' });
         }
     };
 
@@ -114,17 +86,22 @@ const Dashboard = () => {
         if (!deleteModal) return;
         try {
             await api.delete(`/files/${deleteModal.id}`);
-            setFiles(files.filter(f => f.id !== deleteModal.id));
+            toast({ type: 'success', title: 'NODE_PURGED', message: 'Encrypted object permanently removed.' });
             setDeleteModal(null);
-            toast({ type: 'success', message: 'File purged from vault.' });
+            fetchFiles();
         } catch (err) {
-            toast({ type: 'error', message: 'Security purge failed.' });
+            toast({ type: 'error', message: 'PURGE_FAILED' });
         }
     };
 
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
+    const handleShare = async (file) => {
+        try {
+            const res = await api.post(`/files/${file.id}/share`);
+            setShareLink(res.data.share_link);
+            setShareModal(file);
+        } catch (err) {
+            toast({ type: 'error', message: 'LINK_GENERATION_FAILED' });
+        }
     };
 
     const formatSize = (bytes) => {
@@ -137,161 +114,190 @@ const Dashboard = () => {
     const filteredFiles = files.filter(f => f.file_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
-        <div className="w-full max-w-6xl mx-auto py-8 px-4">
-            {/* Header */}
-            <div className="flex flex-wrap justify-between items-center mb-10 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">Personal Vault</h1>
-                    <p className="text-slate-500 dark:text-zinc-400">Secure end-to-end encrypted storage.</p>
+        <div className="w-full max-w-7xl mx-auto py-12 px-6">
+            <header className="mb-12 flex flex-wrap gap-8 justify-between items-end border-b border-zinc-900 pb-10 relative">
+                <div className="relative">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Terminal size={16} className="text-ef-accent opacity-50" />
+                        <span className="ef-text-mono text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Session ID: 0x-{user?.id || 'AUTH'}</span>
+                    </div>
+                    <h1 className="text-4xl font-black italic tracking-tighter text-zinc-50 uppercase flex items-center gap-4">
+                        Personal Vault <Shield size={32} className="text-ef-accent" />
+                    </h1>
+                    <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest mt-2 flex items-center gap-2">
+                         <Activity size={14} className="text-emerald-500 animate-pulse" /> Secure_Storage_Protocol v2.4
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                
+                <div className="flex items-center gap-3 relative z-10">
                     {isAdmin && (
                         <Button 
                             variant="ghost" 
                             onClick={() => navigate('/admin')} 
-                            className="text-emerald-500 hover:bg-emerald-500/10 gap-2 border border-emerald-500/20 px-4"
+                            className="!px-4 bg-ef-accent/10 text-ef-accent border-ef-accent/20 hover:bg-ef-accent/20"
                         >
-                            <ShieldCheck size={18} /> Command Center
+                             COMMAND_CENTER [🛡️]
                         </Button>
                     )}
-                    <Button variant="ghost" onClick={toggleTheme} className="p-2 !w-auto">
-                        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-                    </Button>
-                    <Button variant="ghost" onClick={handleLogout} className="p-2 !w-auto text-red-500 hover:bg-red-500/10">
+                    <button 
+                        onClick={toggleTheme} 
+                        className={`
+                            px-4 py-2 border ef-text-mono text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105
+                            ${mode === 'hazard' ? 'bg-orange-500/10 border-orange-500 text-orange-500' : 'bg-sky-500/10 border-sky-500 text-sky-500'}
+                        `}
+                    >
+                         {mode === 'hazard' ? 'EXECUTE_NEON_LINK' : 'EXECUTE_HAZARD_LINK'}
+                    </button>
+                    <Button variant="ghost" onClick={logout} className="!w-auto !p-2 text-red-500 border-red-500/20 hover:bg-red-500/10">
                         <LogOut size={20} />
                     </Button>
                 </div>
-            </div>
+            </header>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                <Card className="flex items-center gap-6 !p-6" animate={false}>
-                    <div className="p-4 bg-primary-500/10 text-primary-600 rounded-2xl"><HardDrive size={28} /></div>
-                    <div>
-                        <div className="text-3xl font-black text-slate-900 dark:text-zinc-50">{stats.total}</div>
-                        <div className="text-sm font-medium text-slate-500">Secure Files</div>
-                    </div>
-                </Card>
-                <Card className="flex items-center gap-6 !p-6" animate={false}>
-                    <div className="p-4 bg-green-500/10 text-green-600 rounded-2xl"><ArrowUpRight size={28} /></div>
-                    <div>
-                        <div className="text-3xl font-black text-slate-900 dark:text-zinc-50">{stats.downloads}</div>
-                        <div className="text-sm font-medium text-slate-500">Total Decryptions</div>
-                    </div>
-                </Card>
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+                <aside className="space-y-8">
+                    <Card className="!p-0 overflow-hidden !border-t-0">
+                        <div className="p-4 bg-zinc-900/50 border-b border-zinc-800 flex items-center gap-2">
+                            <FileUp size={16} className="text-ef-accent" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Infiltration_Zone</span>
+                        </div>
+                        <div className="p-6">
+                            <label className="group block cursor-pointer">
+                                <div className={`
+                                    border-2 border-dashed border-zinc-800 rounded-sm p-8 flex flex-col items-center justify-center transition-all
+                                    group-hover:border-ef-accent group-hover:bg-ef-accent/5
+                                    ${uploading ? 'opacity-50 pointer-events-none' : ''}
+                                `}>
+                                    {uploading ? (
+                                        <Loader2 className="animate-spin text-ef-accent mb-4" size={32} />
+                                    ) : (
+                                        <Database className="text-zinc-700 group-hover:text-ef-accent transition-colors mb-4" size={32} />
+                                    )}
+                                    <span className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-zinc-200 transition-colors">
+                                        {uploading ? 'ENCRYPTING...' : 'Deposit Data Node'}
+                                    </span>
+                                </div>
+                                <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+                            </label>
+                            <div className="mt-4 ef-text-mono text-[8px] opacity-30 uppercase italic text-center">MAX_PAYLOAD: 100MiB</div>
+                        </div>
+                    </Card>
 
-            {/* Upload Zone */}
-            <label 
-                className={`
-                    block mb-10 p-12 text-center rounded-[32px] cursor-pointer transition-all border-2 border-dashed
-                    ${isDragging ? 'border-primary-500 bg-primary-500/5 scale-[0.99]' : 'border-zinc-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-zinc-100/50 dark:hover:bg-slate-800/50'}
-                `}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e.dataTransfer.files[0]); }}
-            >
-                <input type="file" hidden onChange={(e) => handleFileUpload(e.target.files[0])} disabled={uploading} />
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-primary-600 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-primary-600/20">
-                        {uploading ? <Loader2 className="animate-spin" size={32} /> : <Upload size={32} />}
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-bold mb-1 text-slate-900 dark:text-zinc-50">{uploading ? 'Processing Security Layers...' : 'Vault Deposit'}</h3>
-                        <p className="text-slate-500 dark:text-zinc-500">Drag & drop or browse to encrypt files up to 100MB</p>
-                    </div>
-                </div>
-            </label>
+                    <Card className="!p-0 overflow-hidden">
+                        <div className="p-4 bg-zinc-900/50 border-b border-zinc-800 flex items-center gap-2">
+                            <Filter size={16} className="text-ef-accent" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Global_Index_Sort</span>
+                        </div>
+                        <div className="p-4">
+                            <div className="relative border border-zinc-800 bg-zinc-950 focus-within:border-ef-accent transition-all">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search Hash / Name"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full bg-transparent border-none pl-9 pr-3 py-3 text-xs ef-text-mono text-zinc-200 outline-none placeholder:opacity-20"
+                                />
+                            </div>
+                        </div>
+                    </Card>
+                </aside>
 
-            {/* File List */}
-            <Card className="!p-0 overflow-hidden">
-                <div className="p-6 border-b border-zinc-100 dark:border-slate-800 flex flex-wrap gap-4 items-center justify-between bg-zinc-50/50 dark:bg-slate-900/50">
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-zinc-50">Stored Records</h2>
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Search records..." 
-                            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-zinc-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                <main className="lg:col-span-3 space-y-6">
+                    <div className="flex justify-between items-center px-4 bg-zinc-950 border-l-2 border-ef-accent py-2 opacity-60">
+                        <span className="ef-text-mono text-[10px] font-black uppercase">Active Data Manifest</span>
+                        <span className="ef-text-mono text-[10px] font-black">{filteredFiles.length} Nodes Identified</span>
                     </div>
-                </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="text-left text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 bg-zinc-50/30 dark:bg-slate-900/30">
-                            <tr>
-                                <th className="px-6 py-4">File Identity</th>
-                                <th className="px-6 py-4">Security Size</th>
-                                <th className="px-6 py-4">Deposited At</th>
-                                <th className="px-6 py-4">Accesses</th>
-                                <th className="px-6 py-4 text-right">Vault Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-slate-800/50">
-                            {loading ? (
-                                Array(3).fill(0).map((_, i) => (
-                                    <tr key={i}><td colSpan={5} className="px-6 py-8"><div className="h-6 bg-zinc-100 dark:bg-slate-800 rounded animate-pulse" /></td></tr>
-                                ))
-                            ) : filteredFiles.length === 0 ? (
-                                <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-500">Your vault is currently empty.</td></tr>
-                            ) : (
-                                filteredFiles.map(file => (
-                                    <tr key={file.id} className="hover:bg-zinc-50/50 dark:hover:bg-slate-800/30 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-600 rounded-lg"><FileText size={18} /></div>
-                                                <span className="font-semibold text-slate-900 dark:text-zinc-50">{file.file_name}</span>
+                    <div className="space-y-4 min-h-[500px]">
+                        {loading && files.length === 0 ? (
+                            Array(4).fill(0).map((_, i) => (
+                                <div key={i} className="h-24 bg-zinc-900/30 border border-zinc-800/50 rounded-sm animate-pulse" />
+                            ))
+                        ) : filteredFiles.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-32 border border-zinc-900 border-dashed rounded-xl opacity-20">
+                                <Database size={48} className="mb-4" />
+                                <span className="ef-text-mono text-sm font-black uppercase tracking-[0.5em]">Vault_Empty</span>
+                            </div>
+                        ) : filteredFiles.map((file) => (
+                            <div key={file.id} className="group relative">
+                                <div className="absolute inset-0 bg-ef-accent/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                <div className="flex items-center justify-between p-5 bg-[#0c0c0e] border border-zinc-900 border-l-4 border-l-ef-accent shadow-sm transition-all group-hover:translate-x-1 group-hover:border-zinc-700">
+                                    <div className="flex items-center gap-5">
+                                        <div className="p-3 bg-ef-accent/10 border border-ef-accent/30 text-ef-accent group-hover:bg-ef-accent/20 transition-all relative shadow-[0_0_10px_rgba(var(--ef-accent-rgb),0.1)]">
+                                            <FileText size={24} className="scale-110" />
+                                            <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-ef-accent" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-zinc-50 tracking-tight mb-1">{file.file_name}</h3>
+                                            <div className="flex items-center gap-4 ef-text-mono text-[10px] font-black uppercase tracking-tighter text-zinc-400">
+                                                <span>SPEC: {formatSize(file.size)}</span>
+                                                <span className="hidden sm:inline opacity-30">|</span>
+                                                <span className="hidden sm:inline">TYPE: {file.mime_type?.split('/')[1] || 'DATA'}</span>
+                                                <span className="hidden sm:inline opacity-30">|</span>
+                                                <span className="hidden sm:inline">DEPOSITED: {new Date(file.created_at).toLocaleDateString()}</span>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-zinc-500">{formatSize(file.size)}</td>
-                                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-zinc-500">
-                                            <div className="flex items-center gap-1.5"><Clock size={14} /> {new Date(file.created_at).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2.5 py-0.5 bg-zinc-100 dark:bg-slate-800 text-xs font-bold rounded-full">{file.download_count}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" onClick={() => handleDownload(file)} className="p-2 !w-auto rounded-lg"><Download size={18} /></Button>
-                                                <Button variant="ghost" onClick={() => handleShare(file)} className="p-2 !w-auto rounded-lg"><Share2 size={18} /></Button>
-                                                <Button variant="ghost" onClick={() => setDeleteModal(file)} className="p-2 !w-auto rounded-lg text-red-500 hover:bg-red-500/10"><Trash2 size={18} /></Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            onClick={() => handleDownload(file)} 
+                                            title="Stream Decrypt"
+                                            className="hover:!text-ef-accent hover:!bg-ef-accent/5 border-none"
+                                        >
+                                            <Download size={18} />
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            onClick={() => handleShare(file)} 
+                                            title="Generate Share Sig"
+                                            className="hover:!text-sky-500 hover:!bg-sky-500/5 border-none"
+                                        >
+                                            <Share2 size={18} />
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            onClick={() => setDeleteModal(file)} 
+                                            title="Initialize Purge"
+                                            className="hover:!text-red-500 hover:!bg-red-500/5 border-none"
+                                        >
+                                            <Trash2 size={18} />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </main>
+            </div>
 
             {/* Share Modal */}
             <Modal
-                isOpen={!!shareData}
-                onClose={() => { setShareData(null); setCopied(false); }}
-                title="Secure Link Injection"
+                isOpen={!!shareModal}
+                onClose={() => setShareModal(null)}
+                title="Link_Infiltration_Established"
             >
-                <div className="space-y-6">
-                    <p className="text-slate-500 dark:text-zinc-400 text-sm">
-                        This signed URL allows authorized access to <strong>{shareData?.name}</strong>. Valid for 72 hours.
-                    </p>
-                    <div className="p-4 bg-zinc-100 dark:bg-slate-950 rounded-2xl border border-zinc-200 dark:border-slate-800 break-all font-mono text-xs text-primary-600 dark:text-primary-400">
-                        {shareData?.link}
+                <div className="space-y-8 pt-4">
+                    <div className="p-4 bg-zinc-950 border border-zinc-800 ef-text-mono text-[11px] leading-relaxed break-all relative group">
+                        <div className="text-zinc-600 mb-2 font-black uppercase tracking-widest text-[8px] flex justify-between">
+                            <span>Temporary_Signed_Signature</span>
+                            <span>VAL_72H</span>
+                        </div>
+                        <span className="text-zinc-200">{shareLink}</span>
+                        <div className="absolute inset-0 bg-ef-accent/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     </div>
-                    <Button 
-                        onClick={() => { 
-                            navigator.clipboard.writeText(shareData.link); 
-                            setCopied(true);
-                            toast({ type: 'success', message: 'Signed URL copied to clipboard.' });
-                        }} 
-                        className="w-full"
-                        variant={copied ? 'secondary' : 'primary'}
-                    >
-                        {copied ? <><Check size={20} /> Copied</> : <><Copy size={20} /> Copy Security Link</>}
-                    </Button>
+                    <div className="text-[10px] text-zinc-500 font-medium uppercase tracking-tight flex items-center gap-2">
+                         <AlertOctagon size={14} className="text-ef-accent" />
+                         Signature will self-destruct in 72 hours. Unauthorized redistribution is prohibited.
+                    </div>
+                    <div className="flex flex-col gap-3">
+                        <Button variant="primary" onClick={() => {
+                            navigator.clipboard.writeText(shareLink);
+                            toast({ type: 'success', message: 'SIG_COPIED_TO_BUFFER' });
+                        }}>Copy Link to Buffer</Button>
+                        <Button variant="ghost" onClick={() => setShareModal(null)}>Dismiss HUD</Button>
+                    </div>
                 </div>
             </Modal>
 
@@ -299,18 +305,22 @@ const Dashboard = () => {
             <Modal
                 isOpen={!!deleteModal}
                 onClose={() => setDeleteModal(null)}
-                title="Confirm Record Purge"
+                title="Confirm_Data_Purge"
             >
-                <div className="text-center space-y-6 pt-4">
-                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mx-auto">
-                        <AlertCircle size={32} />
+                <div className="text-center space-y-8 pt-4">
+                    <div className="w-20 h-20 bg-red-950/20 text-red-500 rounded-sm border border-red-500/30 flex items-center justify-center mx-auto relative overflow-hidden group">
+                        <Trash2 size={40} className="relative z-10 group-hover:scale-110 transition-transform" />
+                        <div className="absolute inset-0 bg-red-600/10 animate-pulse" />
                     </div>
-                    <p className="text-slate-600 dark:text-zinc-400">
-                        You are about irreversibly purge <strong>{deleteModal?.file_name}</strong> from the secure vault.
-                    </p>
-                    <div className="grid grid-cols-2 gap-4 mt-8">
-                        <Button variant="secondary" onClick={() => setDeleteModal(null)}>Cancel</Button>
-                        <Button variant="danger" onClick={handleDelete}>Purge Record</Button>
+                    <div>
+                        <h3 className="ef-text-mono text-lg font-black text-zinc-50 mb-2 uppercase">Destruction_Sequence_Active</h3>
+                        <p className="text-zinc-500 text-xs font-medium leading-relaxed uppercase">
+                            Warning: You are about to permanently purge node <span className="text-zinc-200">[{deleteModal?.file_name}]</span> from the encrypted vault. This operation is irrevocable.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                        <Button variant="danger" onClick={handleDelete} className="w-full">Authorize Purge</Button>
+                        <Button variant="ghost" onClick={() => setDeleteModal(null)} className="w-full">Abort Sequence</Button>
                     </div>
                 </div>
             </Modal>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
-import { Search, Filter, RefreshCw, Clock, User as UserIcon, Activity, Globe } from 'lucide-react';
+import { Search, Filter, RefreshCw, Clock, User as UserIcon, Activity, Globe, ShieldAlert } from 'lucide-react';
 import Card from '../components/ui/Card';
 import { useToast } from '../context/ToastContext';
 
@@ -18,9 +18,9 @@ const AdminLogsTable = () => {
         try {
             const response = await api.get('/admin/logs');
             setLogs(response.data.data);
-            if (isSilent) toast({ type: 'success', message: 'Logs updated.', duration: 2000 });
+            if (isSilent) toast({ type: 'success', message: 'AUDIT_SIGNAL_SYNC', duration: 2000 });
         } catch (err) {
-            toast({ type: 'error', message: 'Failed to fetch audit logs.' });
+            toast({ type: 'error', message: 'AUDIT_LINK_FAILED' });
         } finally {
             setLoading(false);
             setLiveRefreshing(false);
@@ -52,25 +52,25 @@ const AdminLogsTable = () => {
     const uniqueActions = ['ALL', ...new Set(logs.map(l => l.action))];
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap gap-4 items-center">
+        <div className="space-y-8">
+            <div className="flex flex-wrap gap-4 items-center bg-zinc-950/50 p-4 border border-zinc-900 rounded-sm backdrop-blur-sm">
                 <div className="relative flex-1 min-w-[300px]">
-                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
                     <input 
                         type="text" 
-                        placeholder="Search system logs..." 
+                        placeholder="SEARCH_EVENT_CACHE..." 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                        className="w-full pl-10 pr-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-ef-accent focus:ring-1 focus:ring-ef-accent/20 rounded-sm ef-text-mono text-[11px] text-zinc-200 outline-none transition-all placeholder:opacity-20"
                     />
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <Filter size={18} className="text-slate-400" />
+                    <span className="ef-text-mono text-[8px] font-black uppercase opacity-40">Filter_Sig:</span>
                     <select 
                         value={actionFilter} 
                         onChange={(e) => setActionFilter(e.target.value)}
-                        className="bg-white dark:bg-slate-900 border border-zinc-200 dark:border-slate-800 py-2.5 px-4 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                        className="bg-zinc-950 border border-zinc-800 text-zinc-400 py-3 px-4 rounded-sm ef-text-mono text-[10px] font-black uppercase tracking-widest focus:border-ef-accent outline-none"
                     >
                         {uniqueActions.map(action => (
                             <option key={action} value={action}>{action.replace('_', ' ')}</option>
@@ -78,67 +78,75 @@ const AdminLogsTable = () => {
                     </select>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white/50 dark:bg-slate-900/50 border border-zinc-200 dark:border-slate-800 px-4 py-2.5 rounded-xl">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Auto Refresh</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} className="sr-only peer" />
-                        <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
-                    </label>
-                    {liveRefresing && <RefreshCw size={14} className="animate-spin text-emerald-500" />}
+                <div className="flex items-center gap-4 border-l border-zinc-800 pl-4 ml-auto">
+                    <div className="flex items-center gap-3">
+                         <span className="ef-text-mono text-[10px] font-black uppercase tracking-widest text-zinc-600">Sync_Protocol</span>
+                         <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} className="sr-only peer" />
+                            <div className="w-10 h-5 bg-zinc-800 peer-focus:outline-none rounded-sm peer peer-checked:after:translate-x-full peer-checked:after:bg-ef-accent after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-500 after:rounded-sm after:h-4 after:w-4 after:transition-all peer-checked:bg-ef-accent/20 border border-zinc-700"></div>
+                        </label>
+                    </div>
+                    <button 
+                        onClick={() => fetchLogs()} 
+                        disabled={loading}
+                        className={`p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-ef-accent transition-all ${loading ? 'animate-spin opacity-50' : ''}`}
+                    >
+                        <RefreshCw size={16} />
+                    </button>
                 </div>
             </div>
 
-            <Card className="!p-0 overflow-hidden">
+            <Card className="!p-0 overflow-hidden !border-t-0 bg-transparent shadow-none">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="text-left text-xs font-bold uppercase tracking-wider text-slate-400 bg-zinc-50/50 dark:bg-slate-900/50">
+                    <table className="w-full border-separate border-spacing-y-2">
+                        <thead className="text-left text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 bg-zinc-900 sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="px-6 py-4">Security Event</th>
-                                <th className="px-6 py-4">Initiator</th>
-                                <th className="px-6 py-4">Source IP</th>
-                                <th className="px-6 py-4">Timestamp</th>
+                                <th className="px-6 py-4">Event_Signature</th>
+                                <th className="px-6 py-4">Infiltration_Source</th>
+                                <th className="px-6 py-4">System_IP</th>
+                                <th className="px-6 py-4">Event_Timeline</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-slate-800/50 text-sm">
+                        <tbody className="text-[11px] ef-text-mono">
                             {loading && logs.length === 0 ? (
-                                Array(5).fill(0).map((_, i) => (
-                                    <tr key={i}><td colSpan={4} className="px-6 py-6"><div className="h-5 bg-zinc-100 dark:bg-slate-800 rounded animate-pulse" /></td></tr>
+                                Array(6).fill(0).map((_, i) => (
+                                    <tr key={i}><td colSpan={4} className="px-6 py-4"><div className="h-10 bg-zinc-900/30 border border-zinc-800/30 animate-pulse" /></td></tr>
                                 ))
                             ) : filteredLogs.length === 0 ? (
-                                <tr><td colSpan={4} className="px-6 py-20 text-center text-slate-500">No security logs recorded.</td></tr>
+                                <tr><td colSpan={4} className="px-6 py-24 text-center text-zinc-600 uppercase tracking-widest font-black">No_Security_Events_Found</td></tr>
                             ) : (
                                 filteredLogs.map((log) => (
-                                    <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
+                                    <tr key={log.id} className="group">
+                                        <td className="px-6 py-4 bg-[#0c0c0e] border-y border-l border-zinc-900 group-hover:border-ef-accent/30 transition-colors">
+                                            <div className="flex items-center gap-4">
                                                 <div className={`
-                                                    p-2 rounded-lg
+                                                    p-2 rounded-sm border
                                                     ${log.action.includes('FAILED') || log.action.includes('UNAUTHORIZED') 
-                                                        ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}
+                                                        ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}
                                                 `}>
                                                     <Activity size={16} />
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-slate-900 dark:text-zinc-50">{log.action}</div>
-                                                    <div className="text-[10px] uppercase tracking-widest opacity-50 font-mono text-slate-500 dark:text-zinc-500">ID: {log.id}</div>
+                                                    <div className="font-black text-zinc-200 group-hover:text-ef-accent uppercase tracking-tighter">{log.action}</div>
+                                                    <div className="text-[8px] opacity-30 mt-0.5">SIG_ID: {log.id}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 font-medium opacity-80 text-slate-700 dark:text-zinc-300">
-                                                <UserIcon size={14} className="opacity-50" />
-                                                {log.user?.email || 'System / Guest'}
+                                        <td className="px-6 py-4 bg-[#0c0c0e] border-y border-zinc-900 group-hover:border-ef-accent/30 opacity-90">
+                                            <div className="flex items-center gap-3 font-bold text-zinc-300">
+                                                <UserIcon size={14} className="opacity-80 text-ef-accent" />
+                                                {log.user?.email || 'SYSTEM_NODE'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 text-slate-500 font-mono text-xs">
-                                                <Globe size={14} className="opacity-40" />
+                                        <td className="px-6 py-4 bg-[#0c0c0e] border-y border-zinc-900 group-hover:border-ef-accent/30 opacity-80">
+                                            <div className="flex items-center gap-3 text-zinc-400">
+                                                <Globe size={14} className="opacity-90 text-sky-400" />
                                                 {log.metadata?.ip || '0.0.0.0'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-400">
-                                            <div className="flex items-center gap-2">
-                                                <Clock size={14} className="opacity-40" />
+                                        <td className="px-6 py-4 bg-[#0c0c0e] border-y border-r border-zinc-900 group-hover:border-ef-accent/30 text-zinc-400">
+                                            <div className="flex items-center gap-3">
+                                                <Clock size={14} className="opacity-80 text-ef-accent" />
                                                 {new Date(log.created_at).toLocaleString()}
                                             </div>
                                         </td>

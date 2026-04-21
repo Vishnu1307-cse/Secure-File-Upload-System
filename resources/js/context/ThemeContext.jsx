@@ -1,28 +1,23 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-    const [isDark, setIsDark] = useState(() => {
-        const saved = localStorage.getItem('theme');
-        return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    });
+    // Modes: 'neon' (blue) or 'hazard' (orange)
+    const [mode, setMode] = useState(() => localStorage.getItem('ef-mode') || 'neon');
 
     useEffect(() => {
         const root = window.document.documentElement;
-        if (isDark) {
-            root.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            root.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-        }
-    }, [isDark]);
+        root.setAttribute('data-theme', mode);
+        localStorage.setItem('ef-mode', mode);
+    }, [mode]);
 
-    const toggleTheme = () => setIsDark(!isDark);
+    const toggleTheme = () => {
+        setMode(prev => prev === 'neon' ? 'hazard' : 'neon');
+    };
 
     return (
-        <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+        <ThemeContext.Provider value={{ mode, isHazard: mode === 'hazard', toggleTheme }}>
             {children}
         </ThemeContext.Provider>
     );

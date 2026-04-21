@@ -1,0 +1,99 @@
+================================================================================
+SECUREVAULT: FULL TECHNICAL SYSTEM & SECURITY MANUAL
+================================================================================
+
+This document provides a comprehensive breakdown of the internal mechanics 
+of the SecureVault project, focusing on the React-Laravel bridge and the 
+encryption/authentication security layers.
+
+--------------------------------------------------------------------------------
+1. THE ARCHITECTURE: REACT & LARAVEL BRIDGE
+--------------------------------------------------------------------------------
+
+SecureVault is built as a Single Page Application (SPA), which means the 
+browser loads a single HTML file once and then uses JavaScript (React) 
+to update the UI dynamically without refreshing the page.
+
+A. The Unified Entry Point:
+   Laravel handles the initial request. In 'routes/web.php', a catch-all 
+   route ('{any}') points to 'app.blade.php'. This Blade file contains 
+   the '@vite' directive which injects the React application into a 
+   single <div id="app">.
+
+B. Communication Layer (Axios):
+   React talks to Laravel through 'resources/js/api.js'. This file 
+   configures an Axios instance with a common Base URL ('/api') and 
+   automatically attaches the 'Bearer Token' to every request once you 
+   are logged in.
+
+C. React Root and Providers:
+   Found in 'resources/js/Root.jsx', the app is wrapped in "Context 
+   Providers":
+   - ThemeProvider: Remembers if you liked Dark or Light mode.
+   - AuthProvider: Manages your login state globally.
+   - ToastProvider: Handles those "success/error" popups you see.
+
+--------------------------------------------------------------------------------
+2. SECURITY INFRASTRUCTURE (LARAVEL SIDE)
+--------------------------------------------------------------------------------
+
+A. OTP AUTHENTICATION LIFE-CYCLE:
+   Instead of just a password, we use an Out-of-Band One-Time Password.
+   1. Request: The 'OtpService' generates a 6-digit code and saves it 
+      with a 10-minute expiry in the 'otps' table.
+   2. Delivery: The code is logged to 'storage/logs/laravel.log'.
+   3. Verification: Laravel checks the code. If successful, it 
+      instantly deletes the OTP (One-Time use) and increases the 
+      user's 'login_count' for auditing.
+
+B. AES-256-CTR FILE ENCRYPTION:
+   This is the core of the vault. When you upload a file:
+   1. Secret Key: Laravel generates a unique 32-character key for 
+      THAT specific file.
+   2. Encryption: The 'FileEncryptionService' reads the file in 
+      small "chunks". It uses 'openssl_encrypt' with the 'aes-256-ctr' 
+      cipher.
+   3. CTR Mode: We use CTR because it allows us to stream data 
+      efficiency without needing padding.
+   4. Storage: The encrypted "gibberish" is stored in 'storage/app/private'. 
+      Even if a hacker steals the file, it is unreadable without the 
+      unique key stored in the database.
+
+C. STREAMING DECRYPTION:
+   When you download, the server DOES NOT create a temporary decrypted 
+   file on disk (which would be a security risk). Instead, it reads the 
+   encrypted file chunk-by-chunk, decrypts it in memory, and pushes the 
+   decrypted bytes directly into the browser's download stream.
+
+--------------------------------------------------------------------------------
+3. REACTIVE SECURITY & ROUTING
+--------------------------------------------------------------------------------
+
+A. ROLE-BASED ACCESS CONTROL (RBAC):
+   - Backend: 'RoleMiddleware.php' checks the 'user.role' before 
+     allowing access to /api/admin/* endpoints.
+   - Frontend: In 'Root.jsx', 'ProtectedRoute' and 'PublicRoute' use 
+     the 'AuthContext' to verify that standard users can never 
+     render the 'AdminDashboard' component.
+
+B. DATA PROTECTION:
+   All API responses undergo "Resource Transformation" (e.g., 
+   'UserResource.php'). This ensures that sensitive fields (like 
+   raw database IDs or internal metadata) are never leaked to the 
+   browser unless absolutely necessary for the UI.
+
+C. SIGNED PUBLIC LINKS:
+   Laravel uses HMAC (Hash-based Message Authentication Code) to 
+   create "Signed URLs". These links contain a unique signature hash. 
+   If even one character in the URL is changed, the signature 
+   becomes invalid, and Laravel rejects the access. This allows 
+   safe file sharing without exposing the vault.
+
+================================================================================
+CONSOLIDATED FILE PATH REFERENCE:
+- Logic: app/Http/Controllers/Api/
+- Services: app/Services/ (The brains)
+- API Config: resources/js/api.js
+- State: resources/js/context/
+- Security Guards: app/Http/Middleware/ & resources/js/Root.jsx
+================================================================================

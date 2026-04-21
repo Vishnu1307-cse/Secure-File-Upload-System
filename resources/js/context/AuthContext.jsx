@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const AuthContext = createContext();
 
@@ -48,6 +49,9 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated: !!token,
         isAdmin: user?.role === 'admin',
+        isApproved: user?.status === 'approved',
+        isPending: user?.status === 'pending',
+        isBanned: user?.status === 'banned',
         loading,
         login,
         logout
@@ -56,9 +60,13 @@ export const AuthProvider = ({ children }) => {
     return (
         <AuthContext.Provider value={value}>
             {!loading ? children : (
-                <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-display">
-                    <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <div className="text-xl font-bold tracking-widest uppercase opacity-50">Initializing Secure Layer...</div>
+                <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white font-display relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.05),transparent)] pointer-events-none" />
+                    <div className="relative">
+                        <Loader2 className="w-16 h-16 text-ef-accent animate-spin mb-6" />
+                        <div className="absolute inset-0 blur-xl bg-ef-accent/20 animate-pulse rounded-full" />
+                    </div>
+                    <div className="ef-text-mono text-xs font-black tracking-[1em] uppercase text-zinc-500 animate-pulse">Initializing_Tactical_Link</div>
                 </div>
             )}
         </AuthContext.Provider>

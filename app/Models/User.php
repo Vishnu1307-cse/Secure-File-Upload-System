@@ -18,12 +18,31 @@ class User extends Authenticatable
     const ROLE_ADMIN = 'admin';
     const ROLE_USER = 'user';
 
+    const STATUS_PENDING = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_BANNED = 'banned';
+
     /**
      * Check if the user is an admin.
      */
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->status === self::STATUS_BANNED;
     }
 
     /**
@@ -52,6 +71,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'status',
+        'department',
         'login_count',
     ];
 

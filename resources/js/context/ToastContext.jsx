@@ -33,17 +33,17 @@ export const ToastProvider = ({ children }) => {
 
 const ToastItem = ({ title, message, type, onClose }) => {
     const icons = {
-        success: <CheckCircle className="text-green-500" />,
+        success: <CheckCircle className="text-emerald-500" />,
         error: <AlertCircle className="text-red-500" />,
-        info: <Info className="text-blue-500" />,
-        loading: <Loader2 className="animate-spin text-primary-500" />
+        info: <Info className="text-ef-accent" />,
+        loading: <Loader2 className="animate-spin text-ef-accent" />
     };
 
     const bgColors = {
-        success: 'border-green-500/20 bg-green-50 dark:bg-green-500/10',
-        error: 'border-red-500/20 bg-red-50 dark:bg-red-500/10',
-        info: 'border-blue-500/20 bg-blue-50 dark:bg-blue-500/10',
-        loading: 'border-primary-500/20 bg-primary-50 dark:bg-primary-500/10'
+        success: 'border-emerald-500/20 bg-[#0c0c0e] text-emerald-500',
+        error: 'border-red-500/20 bg-[#0c0c0e] text-red-500',
+        info: 'border-ef-accent/20 bg-[#0c0c0e] text-ef-accent',
+        loading: 'border-ef-accent/20 bg-[#0c0c0e] text-ef-accent'
     };
 
     return (

@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import AdminLogsTable from '../components/AdminLogsTable';
 import UserList from '../components/UserList';
-import { 
-    LayoutDashboard, Users, History, 
-    Database, Activity, TrendingUp, 
-    ShieldCheck, DownloadCloud, HardDrive, 
-    FileUp, RefreshCcw, Sun, Moon, LogOut, Loader2
+import AdminFilesTable from '../components/AdminFilesTable';
+import {
+    LayoutDashboard, Users, History,
+    Database, Activity, TrendingUp,
+    ShieldCheck, DownloadCloud, HardDrive,
+    FileUp, RefreshCcw, Sun, Moon, LogOut, Loader2,
+    ShieldAlert, Radar, Terminal, UserPlus
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -19,7 +21,7 @@ const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('logs');
-    const { isDark, toggleTheme } = useTheme();
+    const { mode, toggleTheme } = useTheme();
     const { toast } = useToast();
     const navigate = useNavigate();
     const { logout } = useAuth();
@@ -29,13 +31,13 @@ const AdminDashboard = () => {
         try {
             const response = await api.get('/admin/stats');
             setStats(response.data);
-            if (isSilent) toast({ type: 'success', message: 'Telemetry updated.' });
+            if (isSilent) toast({ type: 'success', message: 'TELEMETRY_LINK_SYNC' });
         } catch (err) {
             if (err.response?.status === 401) {
                 logout();
                 navigate('/login');
             } else if (!isSilent) {
-                toast({ type: 'error', message: 'Core telemetry offline.' });
+                toast({ type: 'error', message: 'CRITICAL: HUD_DATA_LOSS' });
             }
         } finally {
             setLoading(false);
@@ -52,86 +54,120 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="w-full max-w-6xl mx-auto py-8 px-4">
-            <header className="mb-10 flex flex-wrap gap-6 justify-between items-end">
-                <div>
-                    <h1 className="text-4xl font-black text-emerald-500 tracking-tight mb-2">Command Center</h1>
-                    <p className="text-slate-500 dark:text-zinc-400 font-medium">System-wide monitoring and vault security audit.</p>
+        <div className="w-full max-w-7xl mx-auto py-12 px-6">
+            <header className="mb-12 flex flex-wrap gap-8 justify-between items-end border-b border-zinc-800 pb-10 relative overflow-hidden">
+                <div className="relative">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Terminal size={16} className="text-ef-accent opacity-50" />
+                        <span className="ef-text-mono text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Admin Panel</span>
+                    </div>
+                    <h1 className="text-4xl font-black italic tracking-tighter text-white uppercase flex items-center gap-4">
+                        Secure File Vault <ShieldAlert size={32} className="text-ef-accent" />
+                    </h1>
+                    <p className="text-zinc-400 font-bold uppercase text-[10px] tracking-widest mt-2 flex items-center gap-2">
+                        <Radar size={14} className="text-emerald-500 animate-pulse" /> System_Wide_Diagnostic_Active
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button 
-                        variant="ghost" 
-                        onClick={() => navigate('/dashboard')} 
-                        className="!w-auto bg-primary-500/10 text-primary-600 hover:bg-primary-500/20 border border-primary-500/20 px-4"
+
+                <div className="flex items-center gap-3 relative z-10">
+                    <Button
+                        variant="ghost"
+                        onClick={() => navigate('/dashboard')}
+                        className="!px-4 bg-ef-accent/10 text-ef-accent border-ef-accent/20 hover:bg-ef-accent/20"
                     >
-                        <HardDrive size={18} /> My Vault
+                        MY_VAULT [📂]
                     </Button>
-                    <Button 
-                        variant="ghost" 
-                        onClick={() => fetchStats(true)} 
-                        className="!w-auto bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 px-4"
+                    <Button
+                        variant="ghost"
+                        onClick={() => fetchStats(true)}
+                        className="!px-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
                     >
-                        <RefreshCcw size={18} /> Sync Telemetry
+                        SYNC_HUD [♻️]
                     </Button>
-                    <Button variant="ghost" onClick={toggleTheme} className="p-2 !w-auto">
-                        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-                    </Button>
-                    <Button variant="ghost" onClick={handleLogout} className="p-2 !w-auto text-red-500 hover:bg-red-500/10">
+                    <button
+                        onClick={toggleTheme}
+                        className={`
+                            px-4 py-2 border ef-text-mono text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105
+                            ${mode === 'hazard' ? 'bg-orange-500/10 border-orange-500 text-orange-400' : 'bg-sky-500/10 border-sky-500 text-sky-400'}
+                        `}
+                    >
+                        {mode === 'hazard' ? 'SWITCH_TO_NEON' : 'SWITCH_TO_HAZARD'}
+                    </button>
+                    <Button variant="ghost" onClick={handleLogout} className="!w-auto !p-2 text-red-400 border-red-500/20 hover:bg-red-500/10">
                         <LogOut size={20} />
                     </Button>
                 </div>
+
+                {/* Background HUD Label */}
+                <div className="absolute top-[-20px] right-20 ef-text-mono text-[100px] font-black italic opacity-5 pointer-events-none uppercase text-white">COMMAND</div>
             </header>
 
-            {/* Admin Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
-                <StatCard 
-                    title="Population" 
-                    value={stats?.totals?.users || 0} 
-                    icon={<Users size={24} />} 
-                    color="emerald" 
-                    subtitle="Registered Identities"
+            {/* Admin Stat HUD */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+                <StatCard
+                    title="Population"
+                    value={stats?.totals?.users || 0}
+                    icon={<Users size={24} />}
+                    color="neon"
+                    subtitle="ID_RECORDS"
                 />
-                <StatCard 
-                    title="Storage" 
-                    value={stats?.totals?.files || 0} 
-                    icon={<Database size={24} />} 
-                    color="blue" 
-                    subtitle="Encrypted Data Units"
+                <StatCard
+                    title="Storage"
+                    value={stats?.totals?.files || 0}
+                    icon={<Database size={24} />}
+                    color="neon"
+                    subtitle="DATA_NODES"
                 />
-                <StatCard 
-                    title="Throughput" 
-                    value={stats?.performance?.total_downloads || 0} 
-                    icon={<DownloadCloud size={24} />} 
-                    color="amber" 
-                    subtitle="Decryption Injections"
+                <StatCard
+                    title="Throughput"
+                    value={stats?.performance?.total_downloads || 0}
+                    icon={<DownloadCloud size={24} />}
+                    color="neon"
+                    subtitle="DECRYPT_LINK"
                 />
-                <StatCard 
-                    title="Security Audits" 
-                    value={stats?.totals?.logs || 0} 
-                    icon={<Activity size={24} />} 
-                    color="indigo" 
-                    subtitle="Immutable Log Entries"
+                <StatCard
+                    title="Logs"
+                    value={stats?.totals?.logs || 0}
+                    icon={<Activity size={24} />}
+                    color="neon"
+                    subtitle="EVENT_QUEUE"
+                />
+                <StatCard
+                    title="Queue"
+                    value={stats?.totals?.pending_users || 0}
+                    icon={<UserPlus size={24} className={stats?.totals?.pending_users > 0 ? 'animate-pulse' : ''} />}
+                    color="hazard"
+                    subtitle="AUTH_QUEUE"
                 />
             </div>
 
             {/* Main Tabs Navigation */}
-            <Card className="!p-1.5 mb-8 flex gap-1 rounded-2xl bg-zinc-100/50 dark:bg-slate-900/50" animate={false}>
-                <TabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<History size={18} />} label="Security Audit Feed" />
-                <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<ShieldCheck size={18} />} label="Access Management" />
-                <TabButton active={activeTab === 'system'} onClick={() => setActiveTab('system')} icon={<TrendingUp size={18} />} label="System Performance" />
-            </Card>
+            <div className="mb-10 flex flex-wrap gap-2">
+                <AdminTabButton active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<History size={18} />} label="Security Audit Feed" />
+                <AdminTabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<ShieldCheck size={18} />} label="Access Management" />
+                <AdminTabButton 
+                    active={activeTab === 'queue'} 
+                    onClick={() => setActiveTab('queue')} 
+                    icon={<UserPlus size={18} />} 
+                    label={stats?.totals?.pending_users > 0 ? `Auth Queue (${stats.totals.pending_users})` : "Auth Queue"} 
+                />
+                <AdminTabButton active={activeTab === 'files'} onClick={() => setActiveTab('files')} icon={<Database size={18} />} label="Master File Registry" />
+                <AdminTabButton active={activeTab === 'system'} onClick={() => setActiveTab('system')} icon={<TrendingUp size={18} />} label="System Performance" />
+            </div>
 
             {/* Tab Content */}
-            <div className="animate-fade-in min-h-[400px]">
+            <div className="animate-fade-in min-h-[500px] relative">
                 {loading && !stats ? (
-                   <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                        <Loader2 className="animate-spin mb-4" size={40} />
-                        <span className="font-bold tracking-widest uppercase text-sm">Synchronizing Data Layer...</span>
-                   </div>
+                    <div className="flex flex-col items-center justify-center py-32 opacity-20 relative">
+                        <Loader2 className="animate-spin mb-6 text-ef-accent" size={64} />
+                        <span className="ef-text-mono font-black tracking-[1em] uppercase text-sm text-white">Synchronizing_Neural_Link...</span>
+                    </div>
                 ) : (
                     <>
                         {activeTab === 'logs' && <AdminLogsTable />}
-                        {activeTab === 'users' && <UserList />}
+                        {activeTab === 'users' && <UserList mode="all" />}
+                        {activeTab === 'queue' && <UserList mode="pending" />}
+                        {activeTab === 'files' && <AdminFilesTable />}
                         {activeTab === 'system' && <SystemPerformanceView stats={stats} />}
                     </>
                 )}
@@ -141,83 +177,96 @@ const AdminDashboard = () => {
 };
 
 const StatCard = ({ title, value, icon, color, subtitle }) => {
-    const colorClasses = {
-        emerald: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-        blue: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-        amber: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-        indigo: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20'
-    };
-
-    const classes = colorClasses[color] || colorClasses.emerald;
-    const [textColor, bgColor, borderColor] = classes.split(' ');
-
     return (
-        <Card className={`!p-6 border-l-4 !rounded-2xl flex flex-col justify-between ${borderColor}`} animate={false}>
-            <div className="flex justify-between items-start mb-4">
-                <div className={`p-2 rounded-xl ${bgColor} ${textColor}`}>{icon}</div>
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-40 text-slate-900 dark:text-zinc-50">System Node</span>
+        <Card className="!p-6 ef-corner-border bg-zinc-950 shadow-inner group hover:border-ef-accent transition-all border-zinc-800">
+            <div className="flex justify-between items-start mb-6">
+                <div className="p-3 bg-zinc-900 border border-zinc-800 text-ef-accent rounded-sm group-hover:scale-110 transition-transform">
+                    {icon}
+                </div>
+                <div className="text-right">
+                    <div className="ef-text-mono text-[8px] font-black uppercase tracking-widest opacity-60 text-zinc-400">{subtitle}</div>
+                    <div className="text-[10px] font-black uppercase text-zinc-100">Live_Status</div>
+                </div>
             </div>
-            <div className="space-y-1">
-                <div className="text-4xl font-black tabular-nums tracking-tighter text-slate-900 dark:text-zinc-50">{value}</div>
-                <div className="font-bold text-sm text-slate-700 dark:text-zinc-300">{title}</div>
-                <div className="text-[10px] uppercase font-medium opacity-50 tracking-tighter text-slate-500 dark:text-zinc-500">{subtitle}</div>
+            <div>
+                <div className="text-5xl font-black italic tracking-tighter text-white ef-text-mono mb-1">{value}</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-ef-accent opacity-80">{title}</div>
+            </div>
+
+            {/* Background Decoration */}
+            <div className="absolute bottom-2 right-2 opacity-5 pointer-events-none flex gap-1">
+                <div className="w-1 h-3 bg-ef-accent"></div>
+                <div className="w-1 h-3 bg-ef-accent opacity-50"></div>
+                <div className="w-1 h-3 bg-ef-accent opacity-20"></div>
             </div>
         </Card>
     );
 };
 
-const TabButton = ({ active, onClick, icon, label }) => (
-    <button 
+const AdminTabButton = ({ active, onClick, icon, label }) => (
+    <button
         onClick={onClick}
         className={`
-            flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold transition-all
-            ${active 
-                ? 'bg-white dark:bg-slate-800 text-emerald-500 shadow-sm border border-zinc-200 dark:border-slate-700' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-slate-800/50'}
+            flex items-center gap-3 py-3 px-6 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ef-text-mono relative
+            ${active
+                ? 'bg-ef-accent text-zinc-950 border border-ef-accent shadow-[0_0_15px_rgba(var(--ef-accent-rgb),0.3)]'
+                : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white hover:bg-zinc-700'}
         `}
     >
-        {icon} <span className="hidden sm:inline">{label}</span>
+        {icon}
+        <span>{label}</span>
+        {active && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-zinc-950 m-1" />}
     </button>
 );
 
 const SystemPerformanceView = ({ stats }) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="!p-8">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><FileUp size={20} /></div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-50">Content Infiltration Leaderboard</h2>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <Card className="!p-0 overflow-hidden !border-t-0 bg-transparent shadow-none">
+            <div className="flex items-center gap-3 mb-8 p-3 bg-zinc-950 border-l-4 border-ef-accent">
+                <FileUp size={18} className="text-ef-accent" />
+                <h2 className="text-sm font-black uppercase tracking-widest text-zinc-50">Content Infiltration Audit</h2>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {stats?.top_downloaded_files?.length > 0 ? stats.top_downloaded_files.map((file, idx) => (
-                    <div key={file.id} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-slate-900 border border-zinc-200 dark:border-slate-800 rounded-2xl">
+                    <div key={file.id} className="flex items-center justify-between p-5 bg-zinc-900/50 border border-zinc-800 rounded-sm hover:border-ef-accent transition-colors">
                         <div className="flex items-center gap-4">
-                            <span className="text-xs font-black opacity-20 text-slate-900 dark:text-zinc-50">0{idx + 1}</span>
-                            <span className="font-bold text-sm text-slate-900 dark:text-zinc-50">{file.file_name}</span>
+                            <span className="ef-text-mono text-[10px] font-black opacity-30">0{idx + 1}</span>
+                            <span className="font-bold text-sm text-zinc-100">{file.file_name}</span>
                         </div>
-                        <span className="text-xs font-black bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full">{file.download_count} Streams</span>
+                        <span className="ef-text-mono text-[10px] font-black text-ef-accent bg-ef-accent/10 px-3 py-1 rounded-sm border border-ef-accent/20">
+                            {file.download_count} STREAMS
+                        </span>
                     </div>
                 )) : (
-                    <div className="text-center py-10 opacity-30 italic">No infiltration data recorded.</div>
+                    <div className="flex flex-col items-center justify-center py-20 border border-zinc-800 border-dashed rounded-sm opacity-20">
+                        <Terminal size={32} className="mb-4" />
+                        <span className="ef-text-mono text-[10px] uppercase font-black uppercase tracking-[0.5em]">No_Infiltration_Data</span>
+                    </div>
                 )}
             </div>
         </Card>
-        
-        <Card className="!p-8">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg"><Users size={20} /></div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-50">Identity Engagement Audit</h2>
+
+        <Card className="!p-0 overflow-hidden !border-t-0 bg-transparent shadow-none">
+            <div className="flex items-center gap-3 mb-8 p-3 bg-zinc-950 border-l-4 border-ef-accent">
+                <Users size={18} className="text-ef-accent" />
+                <h2 className="text-sm font-black uppercase tracking-widest text-zinc-50">Identity Engagement Audit</h2>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {stats?.most_active_users?.length > 0 ? stats.most_active_users.map((user, idx) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-slate-900 border border-zinc-200 dark:border-slate-800 rounded-2xl">
+                    <div key={user.id} className="flex items-center justify-between p-5 bg-zinc-900/50 border border-zinc-800 rounded-sm hover:border-ef-accent transition-colors">
                         <div className="flex items-center gap-4">
-                            <span className="text-xs font-black opacity-20 text-slate-900 dark:text-zinc-50">0{idx + 1}</span>
-                            <span className="font-bold text-sm text-slate-900 dark:text-zinc-50">{user.email}</span>
+                            <span className="ef-text-mono text-[10px] font-black opacity-30">0{idx + 1}</span>
+                            <span className="font-bold text-sm text-zinc-100">{user.email}</span>
                         </div>
-                        <span className="text-xs font-black bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full">{user.login_count} Sessions</span>
+                        <span className="ef-text-mono text-[10px] font-black text-ef-accent bg-ef-accent/10 px-3 py-1 rounded-sm border border-ef-accent/20">
+                            {user.login_count} SESSIONS
+                        </span>
                     </div>
                 )) : (
-                    <div className="text-center py-10 opacity-30 italic">No engagement data recorded.</div>
+                    <div className="flex flex-col items-center justify-center py-20 border border-zinc-800 border-dashed rounded-sm opacity-20">
+                        <Terminal size={32} className="mb-4" />
+                        <span className="ef-text-mono text-[10px] uppercase font-black uppercase tracking-[0.5em]">No_Engagement_Data</span>
+                    </div>
                 )}
             </div>
         </Card>

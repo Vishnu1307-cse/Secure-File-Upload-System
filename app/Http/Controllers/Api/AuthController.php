@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OtpRequest;
 use App\Http\Requests\OtpVerifyRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuditService;
@@ -65,6 +66,40 @@ class AuthController extends Controller
     }
 
     /**
+     * Register a new user with pending status.
+     *
+     * @param RegisterRequest $request
+     * @return JsonResponse
+     */
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        try {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'department' => $request->department,
+                'role' => User::ROLE_USER,
+                'status' => User::STATUS_PENDING,
+                'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32)),
+            ]);
+
+            $this->auditService->log(AuditService::ACTION_USER_REGISTERED, $user->id, [
+                'email' => $user->email,
+                'department' => $user->department
+            ]);
+
+            return response()->json([
+                'message' => 'Registration successful. Waiting for administrator approval.',
+                'user' => new UserResource($user)
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Registration Failed: " . $e->getMessage());
+            return response()->json(['message' => 'Registration failed.'], 500);
+        }
+    }
+
+    /**
      * Verify OTP and issue token.
      *
      * @param OtpVerifyRequest $request
@@ -97,7 +132,10 @@ class AuthController extends Controller
         // Create Sanctum token
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        $this->auditService->log(AuditService::ACTION_LOGIN_SUCCESS, $user->id, ['email' => $email]);
+        $this->auditService->log(AuditService::ACTION_LOGIN_SUCCESS, $user->id, [
+            'email' => $email,
+            'status' => $user->status
+        ]);
 
         return response()->json([
             'message' => 'Authenticated successfully.',
